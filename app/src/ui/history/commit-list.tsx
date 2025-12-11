@@ -28,11 +28,8 @@ import {
 import { KeyboardShortcut } from '../keyboard-shortcut/keyboard-shortcut'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
-import { getAvatarUsersForCommit, IAvatarUser } from '../../models/avatar'
-import { formatDate } from '../../lib/format-date'
-import { Avatar } from '../lib/avatar'
-import { Octicon } from '../octicons'
-import * as octicons from '../octicons/octicons.generated'
+import { CommitHoverInfo } from './commit-hover-info'
+import { calculateGraph, IGraphRow } from '../../lib/git/commit-graph'
 
 const RowHeight = 50
 
@@ -207,6 +204,25 @@ export class CommitList extends React.Component<
       new Map(commitSHAs.map((sha, index) => [sha, index]))
   )
 
+  private getMemoizedCommits = memoizeOne(
+    (shas: ReadonlyArray<string>, lookup: Map<string, Commit>) => {
+      const commits: Commit[] = []
+      shas.forEach(sha => {
+        const commit = lookup.get(sha)
+        if (commit) {
+          commits.push(commit)
+        }
+      })
+      return commits
+    }
+  )
+
+  private getGraphRows = memoizeOne(
+    (commits: ReadonlyArray<Commit>): ReadonlyArray<IGraphRow> => {
+      return calculateGraph(commits)
+    }
+  )
+
   private containerRef = React.createRef<HTMLDivElement>()
   private listRef = React.createRef<List>()
 
@@ -291,6 +307,13 @@ export class CommitList extends React.Component<
       (isLocal || unpushedTags.length > 0) &&
       this.props.isLocalRepository === false
 
+    const commits = this.getMemoizedCommits(
+      this.props.commitSHAs,
+      this.props.commitLookup
+    )
+    const graphRows = this.getGraphRows(commits)
+    const graphRow = graphRows[row]
+
     return (
       <CommitListItem
         key={commit.sha}
@@ -312,6 +335,7 @@ export class CommitList extends React.Component<
         onRemoveDragElement={this.props.onRemoveCommitDragElement}
         disableSquashing={this.props.disableSquashing}
         accounts={this.props.accounts}
+        graphRow={graphRow}
       />
     )
   }
@@ -469,23 +493,6 @@ export class CommitList extends React.Component<
     return rowClassMap
   }
 
-  private renderExpandedAuthor(user: IAvatarUser): string | JSX.Element {
-    if (!user) {
-      return 'Unknown user'
-    }
-
-    if (user.name) {
-      return (
-        <>
-          <div>{user.name}</div>
-          <div>{user.email}</div>
-        </>
-      )
-    }
-
-    return user.email
-  }
-
   private renderRowFocusTooltip = (indexPath: RowIndexPath | undefined) => {
     if (!indexPath) {
       return null
@@ -497,58 +504,11 @@ export class CommitList extends React.Component<
       return null
     }
 
-    const avatarUsers = getAvatarUsersForCommit(
-      this.props.gitHubRepository,
-      commit
-    )
-
-    const {
-      author: { date },
-    } = commit
-
-    const absoluteDate = formatDate(date, {
-      dateStyle: 'full',
-      timeStyle: 'short',
-    })
-
-    const authorList = avatarUsers.map((user, i) => {
-      return (
-        <div className="author" key={i}>
-          <div className="label">
-            <Avatar accounts={this.props.accounts} user={user} title={null} />
-          </div>
-          <div>{this.renderExpandedAuthor(user)}</div>
-        </div>
-      )
-    })
-
-    const isLocal = this.isLocalCommit(commit.sha)
-    const unpushedTags = this.getUnpushedTags(commit)
-
-    const showUnpushedIndicator =
-      (isLocal || unpushedTags.length > 0) &&
-      this.props.isLocalRepository === false
-
     return (
-      <div className="commit-list-item-tooltip list-item-tooltip">
-        {authorList}
-        <div>
-          <div className="label">Date: </div>
-          {absoluteDate}
-        </div>
-        {showUnpushedIndicator ? (
-          <div>
-            <div className="label">
-              <span className="unpushed-indicator">
-                <Octicon symbol={octicons.arrowUp} />
-              </span>
-            </div>
-            <div>
-              {this.getUnpushedIndicatorTitle(isLocal, unpushedTags.length)}
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <CommitHoverInfo
+        commit={commit}
+        gitHubRepository={this.props.gitHubRepository}
+      />
     )
   }
 

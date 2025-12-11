@@ -46,7 +46,7 @@ type RelativeTimeInfo = {
 
 export function getRelativeTimeInfoFromDate(
   then: Date,
-  onlyRelative: boolean = true
+  onlyRelative: boolean = false
 ): RelativeTimeInfo {
   const diff = then.getTime() - Date.now()
   const duration = Math.abs(diff)
@@ -75,20 +75,20 @@ export function getRelativeTimeInfoFromDate(
       relativeText: 'just now',
       duration: MINUTE - duration,
     }
-  } else if (duration < HOUR) {
-    return { absoluteText, relativeText, duration: MINUTE }
   } else if (duration < DAY) {
     return { absoluteText, relativeText, duration: HOUR }
-  } else if (duration < 7 * DAY) {
-    return { absoluteText, relativeText, duration: 6 * HOUR }
   } else {
     if (onlyRelative) {
       return { absoluteText, relativeText, duration: 6 * HOUR }
     } else {
-      // More than a week ago, just the date will suffice
+      const day = then.getDate().toString().padStart(2, '0')
+      const month = (then.getMonth() + 1).toString().padStart(2, '0')
+      const year = then.getFullYear()
+      const time = formatDate(then, { hour: 'numeric', minute: '2-digit' })
+
       return {
         absoluteText,
-        relativeText: formatDate(then, { dateStyle: 'medium' }),
+        relativeText: `${day}/${month}/${year} at ${time}`,
       }
     }
   }

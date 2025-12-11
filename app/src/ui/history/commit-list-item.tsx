@@ -26,6 +26,8 @@ import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
 import { enableAccessibleListToolTips } from '../../lib/feature-flag'
 import { TooltippedContent } from '../lib/tooltipped-content'
+import { CommitGraphItem } from './commit-graph-item'
+import { IGraphRow } from '../../lib/git/commit-graph'
 
 interface ICommitProps {
   readonly gitHubRepository: GitHubRepository | null
@@ -48,6 +50,7 @@ interface ICommitProps {
   readonly disableSquashing?: boolean
   readonly unpushedIndicatorTitle?: string
   readonly accounts: ReadonlyArray<Account>
+  readonly graphRow?: IGraphRow
 }
 
 interface ICommitListItemState {
@@ -150,6 +153,9 @@ export class CommitListItem extends React.PureComponent<
           onMouseLeave={this.onMouseLeave}
           onMouseUp={this.onMouseUp}
         >
+          {this.props.graphRow && (
+            <CommitGraphItem graphRow={this.props.graphRow} />
+          )}
           <div className="info">
             <RichText
               className={summaryClassNames}
